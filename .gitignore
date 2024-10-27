@@ -1,0 +1,95 @@
+
+# Python
+*.py[cod]
+__pycache__/
+*.so
+*.pyd
+*.py[co]
+
+# Virtual environment
+venv/
+.env/
+
+# Byte-compiled / optimized / DLL files
+*.py[cod]
+
+# Logs and temporary files
+*.log
+*.logs.txt
+logs/
+log.txt
+logs.txt
+geckodriver.log
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Editor/IDE files
+.vscode/
+.vs/
+.idea/
+*.swp
+
+# Unit test / coverage reports
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+*.log
+*.pid
+*.tgz
+*.gz
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Documentation
+docs/_build/
+
+# Ignore batch files
+*.bat
+
+# Ignore configuration and credentials
+cred.json
+cred.txt
+
+# Ignore notes and instructions
+notes.txt
+instructions.txt
+test/
+notes/
+
+# Ignore CSV and PDF files
+*.csv
+*.pdf
+
+# Miscellaneous
+downloader/
+site_specific/__pycache__/
+crawlers_raw/__pycache__/
+crawlers_rss/__pycache__/
+crawlers_site/__pycache__/
+
+# Windows specific
+*.db
+
+# Uploaded files
+upload_pypi.bat
+upload_github.bat
+update_package_num.bat
