@@ -1,1 +1,3 @@
 hyperSel
+pyinstaller
+customtkinter
