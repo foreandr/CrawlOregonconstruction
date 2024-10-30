@@ -1,7 +1,6 @@
 import customtkinter as ctk
 import tkinter as tk  # Import standard tkinter for scrollbar
 import json
-from datetime import datetime
 import time
 import threading
 import signal
@@ -9,7 +8,6 @@ import sys
 from queue import Queue
 import logging
 import first_site
-import hyperSel.log_utilities
 import second_site  # Import the crawler module
 import os
 import hard_json
@@ -32,7 +30,6 @@ def clean_entry(entry):
 def load_crawl_data(filepath="./logs/crawl_data.json"):
     """Loads data from a JSON file and combines it with hardcoded data."""
     combined_data = []
-    addresses = []
     city_addr_pairs = []
     dupes = 0
     # Add hardcoded data
@@ -71,7 +68,6 @@ def load_crawl_data(filepath="./logs/crawl_data.json"):
             except json.JSONDecodeError:
                 print("Warning: JSON decoding failed. Using only hardcoded data.")
 
-
     print("combined_data:", len(combined_data))
     print("dupes", dupes)
     return combined_data
@@ -88,11 +84,23 @@ class App(ctk.CTk):
         self.shutdown_event = shutdown_event  # Event for controlled shutdown
         self.progress_queue = Queue()
         
+        # Configure grid for resizing
+        self.columnconfigure(0, weight=2)
+        self.columnconfigure(1, weight=1)
+        self.columnconfigure(2, weight=1)
+        self.rowconfigure(1, weight=1)
+        
         # Initialize and load data
         self.crawl_data = load_crawl_data()
         self.filtered_data = self.crawl_data  # Use crawl_data directly without initial filtering
         self.display_data = []  # Stores currently displayed data
         self.current_batch = 0  # Track the current batch for pagination
+        self.sort_order = {  # Default sort order (None: unsorted, True: ascending, False: descending)
+            "owner_name": None,
+            "license_number": None,
+            "business_type": None,
+            "expiration_date": None
+        }
         
         # Set up GUI elements (search bar, data display, filters, buttons, etc.)
         self.setup_ui()
@@ -110,10 +118,10 @@ class App(ctk.CTk):
         # Search and Filter Section
         self.search_var = ctk.StringVar()
         self.search_entry = ctk.CTkEntry(self, textvariable=self.search_var, width=600, placeholder_text="Search by name")
-        self.search_entry.grid(row=0, column=0, padx=20, pady=20, columnspan=2)
+        self.search_entry.grid(row=0, column=0, padx=20, pady=20, columnspan=2, sticky="ew")
         
         self.search_button = ctk.CTkButton(self, text="Search", command=self.search, width=100)
-        self.search_button.grid(row=0, column=2, padx=10, pady=20)
+        self.search_button.grid(row=0, column=2, padx=10, pady=20, sticky="e")
         
         # Data Display Frame with Scrollbar
         self.scrollbar = tk.Scrollbar(self, orient="vertical")
@@ -133,20 +141,34 @@ class App(ctk.CTk):
         #self.total_data_label = ctk.CTkLabel(self.hud_frame, text=f"TOTAL DATA: {len(self.crawl_data)}", font=("Arial", 14, "bold"))
         #self.total_data_label.pack(pady=(20, 10))
 
-        # Add filter checkboxes for missing data fields
+        # Filter checkboxes with default values (expiration_date ON, others OFF)
         self.filter_vars = {
             "expiration_date": ctk.BooleanVar(value=True),
-            "business_type": ctk.BooleanVar(value=True),
-            "effective_date": ctk.BooleanVar(value=True),
-            "license_number": ctk.BooleanVar(value=True),
-            "owner_name": ctk.BooleanVar(value=True)
+            "business_type": ctk.BooleanVar(value=False),
+            "license_number": ctk.BooleanVar(value=False),
+            "owner_name": ctk.BooleanVar(value=False)
         }
-        
+
+        # Filter checkboxes
         for field, var in self.filter_vars.items():
             ctk.CTkCheckBox(
-                self.hud_frame, text=f"Needs {field.replace('_', ' ').title()}".ljust(30),
+                self.hud_frame, text=f"Needs {field.replace('_', ' ').title()}",
                 variable=var, command=self.apply_filters
             ).pack(pady=(5, 5))
+
+        # Sorting options with up/down toggle buttons for each sortable field
+        for field in ["owner_name", "license_number", "business_type", "expiration_date"]:
+            sort_frame = ctk.CTkFrame(self.hud_frame)
+            sort_frame.pack(pady=(5, 5), fill="x")
+            
+            sort_label = ctk.CTkLabel(sort_frame, text=field.replace('_', ' ').title(), font=("Arial", 12))
+            sort_label.pack(side="left", padx=(10, 5))
+            
+            # Up (ascending) and Down (descending) sorting buttons
+            up_button = ctk.CTkButton(sort_frame, text="↑", width=20, command=lambda f=field: self.sort_data(f, True))
+            down_button = ctk.CTkButton(sort_frame, text="↓", width=20, command=lambda f=field: self.sort_data(f, False))
+            up_button.pack(side="left", padx=(5, 5))
+            down_button.pack(side="left")
 
         # Progress bar setup
         self.progress_frame = ctk.CTkFrame(self, width=280, height=400)
@@ -158,7 +180,6 @@ class App(ctk.CTk):
         self.progress_label2 = ctk.CTkLabel(self.progress_frame, text="Begin First Site Crawl?", font=("Arial", 12, "bold"))
         self.progress_label2.grid(row=3, column=0, pady=(10, 0))
         
-    
         self.time_label = ctk.CTkLabel(self.progress_frame, text="Time elapsed: 0s", font=("Arial", 12))
         self.time_label.grid(row=2, column=0, pady=(10, 20))
 
@@ -170,6 +191,17 @@ class App(ctk.CTk):
         )
         self.first_crawler_button.grid(row=4, column=0, padx=20, pady=(20, 0))
 
+    def sort_data(self, field, ascending):
+        """Sorts data based on the specified field and order, treating None as empty strings for comparison."""
+        self.filtered_data.sort(
+            key=lambda x: (x.get(field) is None, x.get(field, "")),  # Sorts None values to the end
+            reverse=not ascending
+        )
+        self.current_batch = 0
+        self.load_data()
+        # Update sort order to keep track
+        self.sort_order[field] = ascending
+
     def run_first_crawler(self):
         """Starts the first crawler and updates the button text/status."""
         self.first_crawler_button.configure(state="disabled", text="Running first crawler...")
@@ -178,7 +210,7 @@ class App(ctk.CTk):
         def start_crawler():
             first_site.main()  # Start the first crawler
             self.first_crawler_button.configure(state="normal", text="Run First Crawler")
-            self.progress_label2.configure(text="Funished first crawler")
+            self.progress_label2.configure(text="Finished first crawler")
 
         # Run the first crawler in a background thread
         threading.Thread(target=start_crawler, daemon=True).start()
@@ -194,8 +226,8 @@ class App(ctk.CTk):
                 progress = self.progress_queue.get()
                 self.progress_bar.set(progress)
                 time_elapsed = int(time.time() - start_time)
-                self.time_label.configure(text=f"Time elapsed: {time_elapsed}s")
-                self.progress_label.configure(text=f"Second Crawler running... {int(progress * 100)}%")
+                self.time_label.configure(text=f"30-60 minutes to complete...")
+                self.progress_label.configure(text=f"Second Crawler running... {int((progress * 100) +1)}%")
 
                 if progress >= 1.0:
                     self.progress_label.configure(text="Done Second Crawler")
@@ -208,14 +240,36 @@ class App(ctk.CTk):
     def apply_filters(self):
         logging.info("Applying filters to data.")
         filtered_data = []
-
+        count = {"1":0, "2":0, "3":0,"4":0,  "good":0}
         for entry in self.crawl_data:
             exclude = False
             for field, var in self.filter_vars.items():
-                if var.get() and entry.get(field) in ["null", "N/A", "n/a", ""]:
+                if not var.get():
+                    continue
+
+                item = entry.get(field)
+                if item == "":
+                    count['1'] +=1
                     exclude = True
                     break
+        
+                if item == "n/a" or item == "N/A":
+                    count['4'] +=1
+                    exclude = True
+                    break
+
+                if item == None:
+                    count['2'] +=1
+                    exclude = True
+                    break
+
+                if item == "null":
+                    count['3'] +=1
+                    exclude = True
+                    break
+
             if not exclude:
+                count['good'] +=1
                 filtered_data.append(entry)
 
         self.filtered_data = filtered_data
@@ -227,8 +281,6 @@ class App(ctk.CTk):
         start_index = self.current_batch * BATCH_SIZE
         end_index = start_index + BATCH_SIZE
         visible_batch = self.filtered_data[start_index:end_index]
-
-
 
         if not append:
             for widget in self.data_frame.winfo_children():
@@ -245,22 +297,19 @@ class App(ctk.CTk):
             name_label.grid(row=0, column=0, padx=10, pady=5, sticky="w")
 
             location_label = ctk.CTkLabel(entry_frame, text=f"Location: {entry.get('city', 'N/A')}, {entry.get('state', 'N/A')}", font=("Arial", 12))
-            location_label.grid(row=0, column=1, padx=10, pady=5, sticky="w")
+            location_label.grid(row=2, column=1, padx=10, pady=5, sticky="w")
 
             license_label = ctk.CTkLabel(entry_frame, text=f"License: {entry.get('license_number', 'N/A')}", font=("Arial", 12))
             license_label.grid(row=1, column=0, padx=10, pady=5, sticky="w")
 
-            status_label = ctk.CTkLabel(entry_frame, text=f"Status: {entry.get('business_type', 'N/A')}", font=("Arial", 12))
+            status_label = ctk.CTkLabel(entry_frame, text=f"Type: {entry.get('business_type', 'N/A')}", font=("Arial", 12))
             status_label.grid(row=1, column=1, padx=10, pady=5, sticky="w")
 
             phone_label = ctk.CTkLabel(entry_frame, text=f"Phone: {entry.get('phone_number', 'N/A')}", font=("Arial", 12))
             phone_label.grid(row=2, column=0, padx=10, pady=5, sticky="w")
 
-            effective_date_label = ctk.CTkLabel(entry_frame, text=f"Effective Date: {entry.get('effective_date', 'N/A')}", font=("Arial", 12))
-            effective_date_label.grid(row=3, column=0, padx=10, pady=5, sticky="w")
-
             expiration_date_label = ctk.CTkLabel(entry_frame, text=f"Expiration Date: {entry.get('expiration_date', 'N/A')}", font=("Arial", 12))
-            expiration_date_label.grid(row=3, column=1, padx=10, pady=5, sticky="w")
+            expiration_date_label.grid(row=3, column=0, padx=10, pady=5, sticky="w")
 
             self.display_data.append(entry)
         
