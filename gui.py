@@ -12,6 +12,7 @@ import second_site  # Import the crawler module
 import os
 import hard_json
 import hyperSel
+import webbrowser  # For opening links in the default browser
 
 # Constants for pagination
 BATCH_SIZE = 20
@@ -310,6 +311,15 @@ class App(ctk.CTk):
 
             expiration_date_label = ctk.CTkLabel(entry_frame, text=f"Expiration Date: {entry.get('expiration_date', 'N/A')}", font=("Arial", 12))
             expiration_date_label.grid(row=3, column=0, padx=10, pady=5, sticky="w")
+            
+            # Add the clickable "link" button for current_url
+            current_url = entry.get('current_url', None)
+            if current_url:
+                link_button = ctk.CTkButton(
+                    entry_frame, text="Link", width=60,
+                    command=lambda url=current_url: webbrowser.open(url)
+                )
+                link_button.grid(row=3, column=1, padx=10, pady=5, sticky="w")
 
             self.display_data.append(entry)
         

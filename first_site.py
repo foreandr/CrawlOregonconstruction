@@ -59,12 +59,12 @@ def get_data_from_single_entry(div):
         try:
             if ccb_tag := rows[5].find("a"):
                 data['CCB No'] = ccb_tag.get_text(strip=True)
-                data['CCB Link'] = ccb_tag['href']
+                data['current_url'] = ccb_tag['href']
             else:
-                data['CCB No'], data['CCB Link'] = "N/A", "N/A"
+                data['CCB No'], data['current_url'] = "N/A", "N/A"
         except Exception as e:
             print(f"Error extracting CCB No: {e}")
-            data['CCB No'], data['CCB Link'] = "N/A", "N/A"
+            data['CCB No'], data['current_url'] = "N/A", "N/A"
         
         try:
             signing_info = rows[-1].find("td", colspan="3").get_text(strip=True)
