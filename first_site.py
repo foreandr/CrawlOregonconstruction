@@ -13,6 +13,7 @@ import hyperSel.soup_utilities
 from selenium.webdriver.common.action_chains import ActionChains
 from bs4 import BeautifulSoup
 import sys
+import json
 
 driver = None
 
@@ -211,7 +212,9 @@ def grab_data(driver):
         iter_ += items_per_page
         full_url = replace_i_param(full_url, iter_)
         time.sleep(random.uniform(3, 10))
-    hyperSel.log_utilities.log_data(all_data)
+
+    flat_json = convert_big_json_to_flat_json(big_json=all_data)
+    hyperSel.log_utilities.log_data(flat_json)
 
 def run(queue):
     global driver
@@ -273,6 +276,40 @@ def gui(queue):
     check_for_shutdown()
     root.mainloop()
 
+def convert_big_json_to_flat_json(big_json, parent_key='', sep='_'):
+        """
+        Recursively flattens a nested JSON dictionary into a flat dictionary.
+
+        Args:
+            big_json (dict): The nested JSON dictionary to flatten.
+            parent_key (str, optional): The base key string for recursion. Defaults to ''.
+            sep (str, optional): The separator between keys. Defaults to '_'.
+
+        Returns:
+            dict: A flat dictionary with no nested sub-objects.
+        """
+        flat_json = {}
+        for key, value in big_json.items():
+            # Construct the new key by appending the current key to the parent key
+            new_key = f"{parent_key}{sep}{key}" if parent_key else key
+
+            if isinstance(value, dict):
+                # Recursively flatten the sub-dictionary
+                flat_json.update(convert_big_json_to_flat_json(value, new_key, sep=sep))
+            elif isinstance(value, list):
+                # Convert lists to a semicolon-separated string or "N/A" if empty
+                if all(isinstance(item, (str, int, float)) for item in value):
+                    # If all items are primitive types, join them
+                    flat_json[new_key] = "; ".join(map(str, value)) if value else "N/A"
+                else:
+                    # If items are complex (e.g., dicts), represent them as JSON strings
+                    flat_json[new_key] = "; ".join([str(item) for item in value]) if value else "N/A"
+            else:
+                # Assign the value directly, replacing empty strings or None with "N/A"
+                flat_json[new_key] = value if value not in [None, ""] else "N/A"
+
+        return flat_json
+
 def main():
     communication_queue = queue.Queue()
     gui_thread = threading.Thread(target=gui, args=(communication_queue,))
@@ -281,4 +318,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    pass
