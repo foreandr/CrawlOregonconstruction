@@ -7,6 +7,7 @@ import time
 from selenium.webdriver.support.ui import Select
 import sys
 import hard_json
+import csv_converter
 
 def get_total_items(driver):
     soup = hyperSel.selenium_utilities.get_driver_soup(driver)
@@ -201,6 +202,7 @@ def func(driver):
                 pass
             else:
                 hyperSel.log_utilities.log_data(combined_data, verbose=False)
+                csv_converter.update_csv_with_json(combined_data)
         except Exception as e:
             print(e)
         driver.back()

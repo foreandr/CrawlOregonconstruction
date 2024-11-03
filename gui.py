@@ -13,6 +13,7 @@ import os
 import hard_json
 import hyperSel
 import webbrowser  # For opening links in the default browser
+import csv_converter
 
 # Constants for pagination
 BATCH_SIZE = 20
@@ -354,6 +355,11 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 if __name__ == "__main__":
+    load_crawl_data(filepath="./logs/crawl_data.json")
+    
+    csv_converter.update_csv_with_json(load_crawl_data("./logs/crawl_data.json"))
+    csv_converter.update_csv_with_json(hard_json.data_json_hardcoded)
+
     shutdown_event = threading.Event()
 
     # Register the signal handler for graceful shutdown

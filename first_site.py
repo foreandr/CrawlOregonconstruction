@@ -14,7 +14,8 @@ from selenium.webdriver.common.action_chains import ActionChains
 from bs4 import BeautifulSoup
 import sys
 import json
-
+import pandas as pd
+import csv_converter
 driver = None
 
 def extract_total(string):
@@ -199,22 +200,23 @@ def grab_data(driver):
     items_per_page = 100
     next_url = next_link.get("href") + f'&items_per_page={items_per_page}'
     full_url = f"https://www4.cbs.state.or.us/exs/all/mylicsearch/{next_url}"
-    all_data = []
     iter_ = 1
     total = extract_total(str(soup))
     
     while iter_ < total:
+        print("AM I RUNNING?")
         hyperSel.selenium_utilities.go_to_site(driver, full_url)
         time.sleep(20)
         loop_data = get_data_from_page(driver)
         for data in loop_data:
-            all_data.append(data)
+            # print("data:", data)
+            flat_json = convert_big_json_to_flat_json(big_json=data)
+            hyperSel.log_utilities.log_data(flat_json)
+            csv_converter.update_csv_with_json(flat_json)
+
         iter_ += items_per_page
         full_url = replace_i_param(full_url, iter_)
         time.sleep(random.uniform(3, 10))
-
-    flat_json = convert_big_json_to_flat_json(big_json=all_data)
-    hyperSel.log_utilities.log_data(flat_json)
 
 def run(queue):
     global driver
@@ -234,6 +236,7 @@ def run(queue):
                 try:
                     grab_data(driver)
                 except Exception as e:
+                    print(e)
                     pass
                 
                 queue.put("shutdown")  
@@ -317,4 +320,6 @@ def main():
     run(communication_queue)
 
 if __name__ == "__main__":
+    #obj = {'owner_name': 'A ABSOLUTE COMFORT HEATING & COOLING INC', 'license_number': 'N/A', 'License Holder': 'ANDREW C HART', 'address1': '15886 PARK PLACE CT', 'city': 'OREGON CITY, OR\xa0\n\t\t\t\t\t\t97045', 'License Type': 'N/A', 'business_type': 'N/A', 'phone_number': '503-513-4795', 'original Issue Date': '03/14/2006', 'expiration_date': '07/01/2026', 'County': 'N/A', 'CCB No': '132407', 'current_url': 'http://search.ccb.state.or.us/search/business_details.aspx?id=132407', 'Signing Person Information': 'Signing Person InformationBYRON D HAYZLETT: 15580JROBERT ADAM HAUPT: 23749J', 'CE Requirements_Total CE Required': 'A ABSOLUTE COMFORT HEATING & COOLING INC', 'CE Requirements_Required Breakdown_CC': 'N/A', 'CE Requirements_Required Breakdown_ORL': 'N/A', 'CE Requirements_Required Breakdown_CC Description': 'N/A', 'CE Requirements_Current CE_CC': 'Status:Active', 'CE Requirements_Current CE_CR': 'Original Issue Date: 03/14/2006Expiration Date: 07/01/2026', 'CE Requirements_Current CE_ORL': 'CCB No:132407', 'CE Requirements_Total Held CE': 'N/A'}
+    #csv_converter.update_csv_with_json(obj)
     main()
